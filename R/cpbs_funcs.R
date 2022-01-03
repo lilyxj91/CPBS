@@ -1,42 +1,29 @@
-library(splines)
-library(survival)
-
-#####################################################################################################################
-################## theta.function: conditional likelihood function for truncation time ##############################
-
-theta.function = function(theta,A){
-  result = dweibull(A,theta[1],theta[2],log=TRUE)
-  return(-sum(result))
-}
-
-#####################################################################################################################
-#####  naive.method: naive method of ignoring the unique data structure.
-#####		 Specificly, a logistic regresion is fit by excluding subjects with unknown spontenaous abortion status (Y).
-#####		 A Cox proportional hazard model is fit for the left-truncated data using subject with Y = 1  ###############
-
-naive.method = function(T,IND,X,A,Y_SAB){
-  mylogit = glm(Y_SAB[!is.na(Y_SAB)] ~ X[!is.na(Y_SAB),], family = "binomial")
-  alpha = coef(mylogit)
-  alpha.se = summary(mylogit)$coefficients[,2]
-
-  theta.output = optim(c(2,mean(A)),theta.function,A=A,hessian=TRUE)
-  theta = theta.output$par
-  theta.se = sqrt(diag(solve(theta.output$hessian)))
-
-  tempcox = coxph( Surv(A[Y_SAB==1],T[Y_SAB==1], IND[Y_SAB==1]) ~  X[Y_SAB==1,])
-  beta = summary(tempcox)$coefficients[,1]
-  beta.se = summary(tempcox)$coefficients[,3]
-
-  return(list(alpha=alpha,alpha.se=alpha.se, beta = beta, beta.se=beta.se, theta=theta, theta.se=theta.se))
-}
 
 
-expit = function(x)
-{ exp(x)/(1+exp(x))
-  }
+#' Title inverse logit
+#'
+#' @param x
+#'
+#' @return
+#' @export
+#'
+expit = function(x){ exp(x)/(1+exp(x)) }
 
-###################################################################################################################
-########################################  weight.fun: calculate weight w_{ij}   ###################################
+
+
+#' Title weight.fun: calculate weight w_{ij}
+#'
+#' @param theta theta
+#' @param beta beta
+#' @param labda lambda
+#' @param time time
+#' @param yi Yi
+#' @param xi Xi
+#'
+#' @return wi
+#' @export
+#'
+#'
 weight.fun<-function(theta,beta,labda,time,yi,xi)
 {
   wi<-rep(0,length(time))
@@ -51,8 +38,19 @@ weight.fun<-function(theta,beta,labda,time,yi,xi)
   return(wi)
 }
 
-Ey = function(beta,labda,alpha,time,yi,xi)
-{
+#' Title Ey
+#'
+#' @param beta
+#' @param labda
+#' @param alpha
+#' @param time
+#' @param yi
+#' @param xi
+#'
+#' @return
+#' @export
+#'
+Ey = function(beta,labda,alpha,time,yi,xi){
   zz1=c(1,xi)
   Pi_M1= expit(zz1%*%alpha)
 
@@ -64,8 +62,17 @@ Ey = function(beta,labda,alpha,time,yi,xi)
   return(num/denom)
 }
 
-loglik.alpha = function(alpha,data,weight,omega)
-{
+#' Title loglikelihood of alpha
+#'
+#' @param alpha
+#' @param data
+#' @param weight
+#' @param omega
+#'
+#' @return
+#' @export
+#'
+loglik.alpha = function(alpha,data,weight,omega){
 
   mu = cbind(rep(1,length(data[,1])),data[,3:4])%*% alpha
   pi= expit(mu)
@@ -76,7 +83,19 @@ loglik.alpha = function(alpha,data,weight,omega)
   return(-sum(temp2+temp3))
 }
 
-
+#' Title loglikelihood of theta
+#'
+#' @param theta
+#' @param betaold
+#' @param labdaold
+#' @param thetaold
+#' @param time
+#' @param data
+#' @param omega
+#'
+#' @return
+#' @export
+#'
 loglik.theta <-function(theta, betaold,labdaold,thetaold,time,data,omega)
 {
   temp2<-cumsum(labdaold)
@@ -109,11 +128,18 @@ loglik.theta <-function(theta, betaold,labdaold,thetaold,time,data,omega)
   return(-sum(s1))
 }
 
-###################################################################################################################
-##############################  myEM: implement the proposed EM algorithm #########################################
 
-myEM <- function(tol=1e-4, maxit=1000,data)
-{
+#' Title proposed EM algorithm
+#'
+#' @param tol A small number, default 1e-4
+#' @param maxit max iteration, default 1000
+#' @param data dataset
+#'
+#' @return a list
+#' @import survival
+#' @export
+#'
+cpbs_em <- function(tol=1e-4, maxit=1000,data){
   ## jump at both Y=1 and Y unobserved
   index=rep(0,dim(data)[1])
   for ( i in 1:(dim(data)[1])){
@@ -211,55 +237,3 @@ myEM <- function(tol=1e-4, maxit=1000,data)
   return(list(beta = betanew,labda=labdanew,alpha=alphanew,theta=thetanew,conv=0,
               weight=weight1,addon.denom=addon.denom,addon.num=addon.num,omega=omega,tt=tt))
 }
-
-
-##################################################################################################
-################################      Example Codes    ###########################################
-##################################################################################################
-
-data = read.table("~\\example_data.txt",header=TRUE)
-data = data.matrix(data)
-
-#################################################################################################
-################################    Proposed Method   ###########################################
-
-data = data[order(data[,1]),]
-output=myEM(tol=1e-2,maxit=10,data)
-
-# > output$theta
-# [1] 1.017194 2.597618
-# > output$alpha
-# [1] 1.533233 1.013573 1.202404
-# > output$beta
-# cov3       cov4
-# -0.5700114  1.4066774
-
-
-#################################################################################################
-###################################    Naive Method   ###########################################
-
-output.naive = naive.method(T= data[,1],IND = data[,2],
-                            X = data[,3:4],A = data[,5],Y_SAB = data[,6])
-
-# > output.naive
-# $alpha
-# (Intercept) X[!is.na(Y_SAB), ]z1 X[!is.na(Y_SAB), ]z2
-# 2.3445080            0.8438043            0.7968939
-#
-# $alpha.se
-# (Intercept) X[!is.na(Y_SAB), ]z1 X[!is.na(Y_SAB), ]z2
-# 0.2532021            0.5046373            0.7859039
-#
-# $beta
-# X[Y_SAB == 1, ]z1 X[Y_SAB == 1, ]z2
-# -0.4501259         0.9851500
-#
-# $beta.se
-# X[Y_SAB == 1, ]z1 X[Y_SAB == 1, ]z2
-# 0.1491193         0.2553199
-#
-# $theta
-# [1] 0.9670423 2.1970326
-#
-# $theta.se
-# [1] 0.04316005 0.13828019
