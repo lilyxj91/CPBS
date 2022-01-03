@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# cpbs
+# Cured Proportion and Biased Sampling
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -31,11 +31,23 @@ library(cpbs)
 
 ## Example
 
-This is a basic example which shows the results of cpbs and a naive method.
+R file contians functions used to implement the proposed method and naive method.
 
-``` r
+
+```{r}
 library(cpbs)
 ## basic example code
+data(example_data)
+data=data.matrix(example_data)
+data = data[order(data[,1]),]
+output=cpbs_em(tol=1e-4,maxit=1000,data)
+output$theta
+output$alpha
+output$beta
+
+output.naive = naive.method(T= data[,1],IND = data[,2],
+                            X = data[,3:4],A = data[,5],Y_SAB = data[,6])
+output.naive
 ```
 
 

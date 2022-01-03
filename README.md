@@ -1,5 +1,5 @@
 
-# cpbs
+# Cured Proportion and Biased Sampling
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -38,12 +38,50 @@ library(cpbs)
 
 ## Example
 
-This is a basic example which shows the results of cpbs and a naive
-method.
+R file contians functions used to implement the proposed method and
+naive method.
 
 ``` r
 library(cpbs)
 ## basic example code
+data(example_data)
+data=data.matrix(example_data)
+data = data[order(data[,1]),]
+output=cpbs_em(tol=1e-4,maxit=1000,data)
+#> 
+#> Successfully Converged
+output$theta
+#> [1] 1.017538 2.598353
+output$alpha
+#> [1] 1.535884 1.011702 1.206555
+output$beta
+#>       cov3       cov4 
+#> -0.5696793  1.4060352
+
+output.naive = naive.method(T= data[,1],IND = data[,2],
+                            X = data[,3:4],A = data[,5],Y_SAB = data[,6])
+output.naive
+#> $alpha
+#>          (Intercept) X[!is.na(Y_SAB), ]z1 X[!is.na(Y_SAB), ]z2 
+#>            2.3445080            0.8438043            0.7968939 
+#> 
+#> $alpha.se
+#>          (Intercept) X[!is.na(Y_SAB), ]z1 X[!is.na(Y_SAB), ]z2 
+#>            0.2532021            0.5046373            0.7859039 
+#> 
+#> $beta
+#> X[Y_SAB == 1, ]z1 X[Y_SAB == 1, ]z2 
+#>        -0.4501259         0.9851500 
+#> 
+#> $beta.se
+#> X[Y_SAB == 1, ]z1 X[Y_SAB == 1, ]z2 
+#>         0.1491193         0.2553199 
+#> 
+#> $theta
+#> [1] 0.9670423 2.1970326
+#> 
+#> $theta.se
+#> [1] 0.04316005 0.13828019
 ```
 
 ## Reference
